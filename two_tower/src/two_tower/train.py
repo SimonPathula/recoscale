@@ -14,10 +14,10 @@ BATCH_SIZE = 128
 NUM_EPOCHS = 5
 LR = 1e-3
 NUM_WORKERS = 0
-TRAIN_SAMPLE_SIZE = 5_000_000
-RESUME = False
+TRAIN_SAMPLE_SIZE = None
+RESUME = True
 
-CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower_inbatch_sampled"
+CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 INTERACTIONS = "D:/projects/recoscale/two_tower/data/interactions_train"
@@ -98,7 +98,7 @@ def main():
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
     use_amp = DEVICE.type == "cuda"
     print(f"Device: {DEVICE} | AMP: {use_amp}")
-    print(f"Training sample size: {TRAIN_SAMPLE_SIZE:,}")
+    print(f"Training sample size: {TRAIN_SAMPLE_SIZE}")
 
     print("Loading dataset...")
     dataset = TwoTowerDataset(

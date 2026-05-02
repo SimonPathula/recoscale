@@ -4,22 +4,23 @@ import pickle
 import torch
 import faiss
 import os
+import random
 from tqdm import tqdm
-from two_tower.src.two_tower.two_tower_model import TwoTowerModel
+from two_tower_model import TwoTowerModel
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-TOTAL_ITEMS = 7966869
-INTERACTIONS = "D:/projects/recoscale/data/export_data/interactions_test"
-USER_HISTORY = "D:/projects/recoscale/data/export_data/user_history.pkl"
-ALL_ITEMS = "D:/projects/recoscale/data/export_data/all_item_idxs.npy"
-CHECKPOINT_DIR = "D:/projects/recoscale/models/two_tower_inbatch_sampled"
-INDEX_PATH = "D:/projects/recoscale/models/faiss_index_inbatch_sampled.bin"
+INTERACTIONS_TEST = "D:/projects/recoscale/two_tower/data/interactions_test"
+USER_HISTORY = "D:/projects/recoscale/two_tower/data/user_history.pkl"
+ALL_ITEMS = "D:/projects/recoscale/two_tower/data/all_item_idxs.npy"
+CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower_inbatch_sampled"
+INDEX_PATH = "D:/projects/recoscale/two_tower/models/faiss_index_inbatch_sampled.bin"
 MAX_HISTORY = 50
 K = 10
 SAMPLE_USERS = 10000
 FETCH_MULTIPLIER = 20
+SEED = 42
 
-test = pd.read_parquet(INTERACTIONS)
+test = pd.read_parquet(INTERACTIONS_TEST)
 
 with open(USER_HISTORY, "rb") as f:
     user_history = pickle.load(f)
@@ -30,26 +31,25 @@ index = faiss.read_index(INDEX_PATH)
 
 model = TwoTowerModel().to(DEVICE)
 model.item_features = model.item_features.to(DEVICE)
-checkpoints = sorted(
-    [f for f in os.listdir(CHECKPOINT_DIR) if f.endswith(".pt")],
-    key=lambda x: int(x.split("_")[1].split(".")[0])
-)
-if not checkpoints:
-    raise FileNotFoundError(f"No checkpoints found in {CHECKPOINT_DIR}")
-ckpt_path = os.path.join(CHECKPOINT_DIR, checkpoints[-1])
-ckpt = torch.load(ckpt_path, map_location=DEVICE, weights_only=False)
-model.load_state_dict(ckpt["model_state_dict"])
-model.eval()
-print(f"Loaded checkpoint: {ckpt_path}")
+
+
+def latest_checkpoint():
+    checkpoints = sorted(
+        [f for f in os.listdir(CHECKPOINT_DIR) if f.endswith(".pt")],
+        key=lambda x: int(x.split("_")[1].split(".")[0]),
+    )
+    if not checkpoints:
+        raise FileNotFoundError(f"No checkpoints found in {CHECKPOINT_DIR}")
+    return os.path.join(CHECKPOINT_DIR, checkpoints[-1])
 
 def get_user_embedding(user_idx):
     history = user_history.get(user_idx, [])
     if len(history) == 0:
         return None, set()
 
-    history_items = [x[0] for x in history][-MAX_HISTORY:]
-    history_ratings = [x[1] for x in history][-MAX_HISTORY:]
-    seen_items = {x[0] for x in history}
+    history_items = [int(x[0]) for x in history][-MAX_HISTORY:]
+    history_ratings = [float(x[1]) for x in history][-MAX_HISTORY:]
+    seen_items = {int(x[0]) for x in history}
 
     pad_len = MAX_HISTORY - len(history_items)
     batch = {
@@ -86,10 +86,21 @@ def compute_ndcg(retrieved, ground_truth, k=10):
     return 0.0
 
 print("Sampling users...")
-unique_users = test['user_idx'].drop_duplicates()
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+ckpt_path = latest_checkpoint()
+ckpt = torch.load(ckpt_path, map_location=DEVICE, weights_only=False)
+model.load_state_dict(ckpt["model_state_dict"])
+model.eval()
+print(f"Loaded checkpoint: {ckpt_path}")
+
+unique_users = test["user_idx"].drop_duplicates()
 sample_size = min(SAMPLE_USERS, len(unique_users))
-sample_users = unique_users.sample(sample_size, random_state=42)
-test_sample = test[test['user_idx'].isin(sample_users)]
+sample_users = unique_users.sample(sample_size, random_state=SEED)
+test_sample = test[test["user_idx"].isin(sample_users)]
+eval_rows = test_sample.groupby("user_idx", group_keys=False).sample(n=1, random_state=SEED)
 
 print(f"Evaluating {sample_size} sampled users...")
 ndcg_scores = []
@@ -97,9 +108,9 @@ skipped_no_history = 0
 gt_not_train_candidate = 0
 skipped_gt_in_history = 0
 
-for _, row in tqdm(test_sample.iterrows(), total=len(test_sample)):
-    user_idx = row['user_idx']
-    gt_item = int(row['item_idx'])
+for row in tqdm(eval_rows.itertuples(index=False), total=len(eval_rows)):
+    user_idx = int(row.user_idx)
+    gt_item = int(row.item_idx)
     if gt_item not in candidate_items:
         gt_not_train_candidate += 1
 

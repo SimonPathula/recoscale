@@ -7,15 +7,15 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 
-from two_tower.src.two_tower.two_tower_model import TwoTowerModel
+from two_tower_model import TwoTowerModel
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-INTERACTIONS = "D:/projects/recoscale/data/export_data/interactions_test"
-USER_HISTORY = "D:/projects/recoscale/data/export_data/user_history.pkl"
-ALL_ITEMS = "D:/projects/recoscale/data/export_data/all_item_idxs.npy"
-CHECKPOINT_DIR = "D:/projects/recoscale/models/two_tower_inbatch_sampled"
+INTERACTIONS_TEST = "D:/projects/recoscale/two_tower/data/interactions_test"
+USER_HISTORY = "D:/projects/recoscale/two_tower/data/user_history.pkl"
+ALL_ITEMS = "D:/projects/recoscale/two_tower/data/all_item_idxs.npy"
+CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower_inbatch_sampled"
 
 MAX_HISTORY = 50
 K = 10
@@ -24,7 +24,7 @@ NUM_NEGATIVES = 1000
 SEED = 42
 
 
-test = pd.read_parquet(INTERACTIONS)
+test = pd.read_parquet(INTERACTIONS_TEST)
 
 with open(USER_HISTORY, "rb") as f:
     user_history = pickle.load(f)
@@ -62,18 +62,15 @@ def get_user_embedding(model, user_idx):
 
 
 def sample_negatives(gt_item, seen_items):
-    negatives = []
     blocked = set(seen_items)
     blocked.add(gt_item)
+    candidate_pool = all_items[~np.isin(all_items, list(blocked))]
+    if candidate_pool.size == 0:
+        return []
 
-    while len(negatives) < NUM_NEGATIVES:
-        item = int(random.choice(all_items))
-        if item in blocked:
-            continue
-        blocked.add(item)
-        negatives.append(item)
-
-    return negatives
+    take = min(NUM_NEGATIVES, candidate_pool.size)
+    sampled = np.random.choice(candidate_pool, size=take, replace=False)
+    return sampled.astype(np.int64).tolist()
 
 
 def compute_ndcg(retrieved, ground_truth, k=10):
@@ -102,13 +99,15 @@ def main():
     sample_size = min(SAMPLE_USERS, len(unique_users))
     sample_users = unique_users.sample(sample_size, random_state=SEED)
     test_sample = test[test["user_idx"].isin(sample_users)]
+    eval_rows = test_sample.groupby("user_idx", group_keys=False).sample(n=1, random_state=SEED)
 
     ndcg_scores = []
     hit_count = 0
     skipped_no_history = 0
     skipped_gt_in_history = 0
+    skipped_no_candidates = 0
 
-    for row in tqdm(test_sample.itertuples(index=False), total=len(test_sample)):
+    for row in tqdm(eval_rows.itertuples(index=False), total=len(eval_rows)):
         user_idx = int(row.user_idx)
         gt_item = int(row.item_idx)
 
@@ -121,6 +120,9 @@ def main():
             continue
 
         candidate_ids = [gt_item] + sample_negatives(gt_item, seen_items)
+        if len(candidate_ids) <= 1:
+            skipped_no_candidates += 1
+            continue
         candidate_ids_np = np.array(candidate_ids, dtype=np.int64)
 
         with torch.no_grad():
@@ -143,6 +145,7 @@ def main():
     print(f"Evaluated users: {len(ndcg_scores)}")
     print(f"Skipped users without train history: {skipped_no_history}")
     print(f"Skipped test items already in train history: {skipped_gt_in_history}")
+    print(f"Skipped users with no negative candidates: {skipped_no_candidates}")
 
 
 if __name__ == "__main__":

@@ -3,13 +3,20 @@ import torch
 import numpy as np
 from tqdm import tqdm
 
-from two_tower.src.two_tower.two_tower_model import TwoTowerModel
+from two_tower_model import TwoTowerModel
 
 CHUNK_SIZE = 256
-TOTAL_ITEMS = 7966869
-CHECKPOINT_DIR = "D:/projects/recoscale/models/two_tower_inbatch_sampled"
-SAVE_PATH = "D:/projects/recoscale/models/item_embeddings_inbatch_sampled"
+TITLE_DIM = 384
+
+SAVE_PATH = "D:/projects/recoscale/two_tower/models/item_embeddings_inbatch_sampled.npy"
+CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower_inbatch_sampled"
+ITEM_FEATURES_PATH = "D:/projects/recoscale/two_tower/data/item_features_clean.npy"
+TITLE_EMBEDDINGS_PATH = "D:/projects/recoscale/two_tower/data/title_embeddings.dat"
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+item_features = np.load(ITEM_FEATURES_PATH)
+TOTAL_ITEMS = item_features.shape[0]
 
 checkpoints = sorted(
         [f for f in os.listdir(CHECKPOINT_DIR) if f.endswith(".pt")],
@@ -17,23 +24,25 @@ checkpoints = sorted(
     )
 
 latest = os.path.join(CHECKPOINT_DIR, checkpoints[-1])
-ckpt = torch.load(latest, map_location = DEVICE)   
+ckpt = torch.load(latest, map_location = DEVICE)  
 
 title_embeddings = np.memmap(
-    "D:/projects/recoscale/data/export_data/title_embeddings.dat",
+    TITLE_EMBEDDINGS_PATH,
     dtype= "float32",
     mode= "r",
-    shape= (7966869, 384)
+    shape= (TOTAL_ITEMS, TITLE_DIM)
 )
 
 item_features = torch.from_numpy(
-        np.load("D:/projects/recoscale/data/export_data/item_features_clean.npy")
+        np.load(ITEM_FEATURES_PATH)
     ).float()
 
 def get_item_vecs(item_ids):
     item_ids_np = item_ids.detach().cpu().numpy()
+
     title = torch.from_numpy(title_embeddings[item_ids_np]).to(item_ids.device)
-    feat = item_features[item_ids_np].to(item_ids.device)
+    feature_ids = item_ids.to(item_features.device)
+    feat = item_features[feature_ids].to(item_ids.device)
     return torch.cat([title, feat], dim=-1)
 
 def move_batch(batch, device):
