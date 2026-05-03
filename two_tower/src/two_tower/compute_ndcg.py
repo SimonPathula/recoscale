@@ -18,6 +18,7 @@ INDEX_PATH = "D:/projects/recoscale/two_tower/models/faiss_index_fullbatch.bin"
 
 MAX_HISTORY = 50
 K = 10
+RECALL_KS = [10, 50, 100, 500, 1000]
 SAMPLE_USERS = 10000
 FETCH_MULTIPLIER = 20
 SEED = 42
@@ -106,6 +107,7 @@ eval_rows = test_sample.groupby("user_idx", group_keys=False).sample(n=1, random
 
 print(f"Evaluating {sample_size} sampled users...")
 ndcg_scores = []
+recall_hits = {k: 0 for k in RECALL_KS}
 skipped_no_history = 0
 gt_not_train_candidate = 0
 skipped_gt_in_history = 0
@@ -126,15 +128,20 @@ for row in tqdm(eval_rows.itertuples(index=False), total=len(eval_rows)):
         continue
 
     faiss.normalize_L2(user_emb)
-    retrieved = search_unseen(user_emb, seen_items, K)
+    retrieved = search_unseen(user_emb, seen_items, max(RECALL_KS))
 
     ndcg = compute_ndcg(retrieved, gt_item, K)
     ndcg_scores.append(ndcg)
+    for recall_k in RECALL_KS:
+        recall_hits[recall_k] += int(gt_item in retrieved[:recall_k])
 
 if not ndcg_scores:
     raise RuntimeError("No users were evaluated. Check user_history and test/candidate item overlap.")
 
-print(f"\nNDCG@{K} = {np.mean(ndcg_scores):.4f}")
+print()
+for recall_k in RECALL_KS:
+    print(f"Recall@{recall_k} = {recall_hits[recall_k] / len(ndcg_scores):.4f}")
+print(f"NDCG@{K} = {np.mean(ndcg_scores):.4f}")
 print(f"Hit Rate@{K} = {sum(s > 0 for s in ndcg_scores) / len(ndcg_scores):.4f}")
 print(f"Evaluated users: {len(ndcg_scores)}")
 print(f"Skipped users without train history: {skipped_no_history}")

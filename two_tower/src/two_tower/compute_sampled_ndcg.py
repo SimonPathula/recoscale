@@ -15,7 +15,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 INTERACTIONS_TEST = "D:/projects/recoscale/two_tower/data/interactions_test"
 USER_HISTORY = "D:/projects/recoscale/two_tower/data/user_history.pkl"
 ALL_ITEMS = "D:/projects/recoscale/two_tower/data/all_item_idxs.npy"
-CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower_inbatch_sampled"
+CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower"
 
 MAX_HISTORY = 50
 K = 10
