@@ -8,8 +8,8 @@ from two_tower_model import TwoTowerModel
 CHUNK_SIZE = 256
 TITLE_DIM = 384
 
-SAVE_PATH = "D:/projects/recoscale/two_tower/models/item_embeddings_inbatch_sampled.npy"
-CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower_inbatch_sampled"
+SAVE_PATH = "D:/projects/recoscale/two_tower/models/item_embeddings_fullbatch.npy"
+CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower"
 ITEM_FEATURES_PATH = "D:/projects/recoscale/two_tower/data/item_features_clean.npy"
 TITLE_EMBEDDINGS_PATH = "D:/projects/recoscale/two_tower/data/title_embeddings.dat"
 

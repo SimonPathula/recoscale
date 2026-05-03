@@ -2,6 +2,8 @@
 /als/data
 /als/models
 /two_tower/data
-/two_tower/src/two_tower/__pycache__
 /two_tower/models/faiss_index_inbatch_sampled.bin
+/two_tower/models/faiss_index_fullbatch.bin
 /two_tower/models/item_embeddings_inbatch_sampled.npy
+/two_tower/models/item_embeddings_fullbatch.npy
+/two_tower/src/two_tower/__pycache__

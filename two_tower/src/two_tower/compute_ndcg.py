@@ -9,11 +9,13 @@ from tqdm import tqdm
 from two_tower_model import TwoTowerModel
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 INTERACTIONS_TEST = "D:/projects/recoscale/two_tower/data/interactions_test"
 USER_HISTORY = "D:/projects/recoscale/two_tower/data/user_history.pkl"
 ALL_ITEMS = "D:/projects/recoscale/two_tower/data/all_item_idxs.npy"
-CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower_inbatch_sampled"
-INDEX_PATH = "D:/projects/recoscale/two_tower/models/faiss_index_inbatch_sampled.bin"
+CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower"
+INDEX_PATH = "D:/projects/recoscale/two_tower/models/faiss_index_fullbatch.bin"
+
 MAX_HISTORY = 50
 K = 10
 SAMPLE_USERS = 10000
@@ -71,7 +73,7 @@ def search_unseen(user_emb, seen_items, k=10):
         retrieved = [
             int(item)
             for item in indices[0]
-            if item >= 0 and int(item) not in seen_items
+            if item >= 0 and int(item) in candidate_items and int(item) not in seen_items
         ]
 
         if len(retrieved) >= k or fetch_k >= index.ntotal:
@@ -113,6 +115,7 @@ for row in tqdm(eval_rows.itertuples(index=False), total=len(eval_rows)):
     gt_item = int(row.item_idx)
     if gt_item not in candidate_items:
         gt_not_train_candidate += 1
+        continue
 
     user_emb, seen_items = get_user_embedding(user_idx)
     if user_emb is None:
