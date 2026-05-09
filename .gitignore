@@ -7,3 +7,7 @@
 /two_tower/models/item_embeddings_inbatch_sampled.npy
 /two_tower/models/item_embeddings_fullbatch.npy
 /two_tower/src/two_tower/__pycache__
+two_tower/models/faiss_index_hardneg_fullbatch.bin
+two_tower/models/item_embeddings_hardneg_fullbatch.npy
+/resume_lines.txt
+

@@ -1,0 +1,47 @@
+Dataset creates:
+    history_items
+    pos_item
+    negative_pool
+
+            ↓
+
+Training loop receives batch
+
+            ↓
+
+history_items
+    ↓
+ItemTower
+    ↓
+UserTower
+    ↓
+user_emb
+
+pos_item
+    ↓
+ItemTower
+    ↓
+pos_emb
+
+negative_pool
+    ↓
+ItemTower
+    ↓
+hard negative selection
+    ↓
+neg_emb
+
+            ↓
+
+sampled_softmax_loss(
+    user_emb,
+    pos_emb,
+    neg_emb
+)
+
+            ↓
+
+backpropagation
+            ↓
+
+update BOTH towers

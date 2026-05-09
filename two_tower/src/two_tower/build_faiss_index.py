@@ -1,8 +1,8 @@
 import numpy as np
 import faiss
 
-ITEM_EMBEDDINGS_PATH = "D:/projects/recoscale/two_tower/models/item_embeddings_fullbatch.npy"
-SAVE_PATH = "D:/projects/recoscale/two_tower/models/faiss_index_fullbatch.bin"
+ITEM_EMBEDDINGS_PATH = "D:/projects/recoscale/two_tower/models/item_embeddings_hardneg_fullbatch.npy"
+SAVE_PATH = "D:/projects/recoscale/two_tower/models/faiss_index_hardneg_fullbatch.bin"
 
 item_embeddings = np.load(ITEM_EMBEDDINGS_PATH).astype("float32")
 

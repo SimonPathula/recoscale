@@ -13,8 +13,8 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 INTERACTIONS_TEST = "D:/projects/recoscale/two_tower/data/interactions_test"
 USER_HISTORY = "D:/projects/recoscale/two_tower/data/user_history.pkl"
 ALL_ITEMS = "D:/projects/recoscale/two_tower/data/all_item_idxs.npy"
-CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower"
-INDEX_PATH = "D:/projects/recoscale/two_tower/models/faiss_index_fullbatch.bin"
+CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower_hardneg"
+INDEX_PATH = "D:/projects/recoscale/two_tower/models/faiss_index_hardneg_fullbatch.bin"
 
 MAX_HISTORY = 50
 K = 10
@@ -43,7 +43,7 @@ def latest_checkpoint():
     )
     if not checkpoints:
         raise FileNotFoundError(f"No checkpoints found in {CHECKPOINT_DIR}")
-    return os.path.join(CHECKPOINT_DIR, checkpoints[-1])
+    return os.path.join(CHECKPOINT_DIR, checkpoints[-2])
 
 def get_user_embedding(user_idx):
     history = user_history.get(user_idx, [])

@@ -18,29 +18,34 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 INTERACTIONS = "D:/projects/recoscale/two_tower/data/interactions_train"
 USER_HISTORY = "D:/projects/recoscale/two_tower/data/user_history.pkl"
-ALL_ITEMS = "D:/projects/recoscale/two_tower/data/all_item_idxs.npy"
+ALL_ITEMS_INDEXES = "D:/projects/recoscale/two_tower/data/all_item_idxs.npy"
 CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower_hardneg"
 
 SEED = 42
 MAX_HISTORY = 50
 
-BATCH_SIZE = 256
-NUM_EPOCHS = 5
+BATCH_SIZE = 128
+NUM_EPOCHS = 7
 LR = 5e-4
 WEIGHT_DECAY = 1e-5
 NUM_WORKERS = 0
 TRAIN_SAMPLE_SIZE = None
-RESUME = False
+RESUME = True
 
 NUM_NEGATIVES = 64
 NEGATIVE_POOL_SIZE = 192
-POPULAR_POOL_SIZE = 200_000
 POPULAR_FRACTION = 0.50
+POPULAR_POOL_SIZE = 200_000
 
 SAMPLED_LOSS_WEIGHT = 1.0
 IN_BATCH_LOSS_WEIGHT = 0.25
 TEMPERATURE = 0.07
 GRAD_CLIP_NORM = 5.0
+
+#315_500 = 5.0788 - 2
+#315_500 = 5.1182 - 3
+#315_500 = 5.15 - 4
+#315_500 = 5.20 - 5
 
 
 class HardNegativeTwoTowerDataset(Dataset):
@@ -67,12 +72,12 @@ class HardNegativeTwoTowerDataset(Dataset):
 
         self.users = self.df["user_idx"].astype(np.int64).to_numpy()
         self.items = self.df["item_idx"].astype(np.int64).to_numpy()
-        self.all_items = np.load(all_items_path).astype(np.int64)
+        self.all_items_indices = np.load(all_items_path).astype(np.int64)
 
         item_counts = self.df["item_idx"].value_counts()
         self.popular_items = item_counts.index.to_numpy(dtype=np.int64)[:POPULAR_POOL_SIZE]
         if len(self.popular_items) == 0:
-            self.popular_items = self.all_items
+            self.popular_items = self.all_items_indices
 
     def __len__(self):
         return len(self.df)
@@ -96,7 +101,7 @@ class HardNegativeTwoTowerDataset(Dataset):
             attempts += 1
 
         while len(selected) < count:
-            item = int(self.all_items[self.rng.integers(0, len(self.all_items))])
+            item = int(self.all_items_indices[self.rng.integers(0, len(self.all_items_indices))])
             if item not in blocked:
                 selected.append(item)
 
@@ -112,7 +117,7 @@ class HardNegativeTwoTowerDataset(Dataset):
         negatives = []
         negatives.extend(self._sample_candidates(self.popular_items, popular_count, blocked))
         blocked.update(negatives)
-        negatives.extend(self._sample_candidates(self.all_items, random_count, blocked))
+        negatives.extend(self._sample_candidates(self.all_items_indices, random_count, blocked))
 
         self.rng.shuffle(negatives)
         return np.asarray(negatives, dtype=np.int64)
@@ -138,10 +143,10 @@ class HardNegativeTwoTowerDataset(Dataset):
             "history_ratings": torch.tensor(history_ratings_padded, dtype=torch.float32),
             "history_mask": torch.tensor(history_mask, dtype=torch.float32),
             "pos_item": torch.tensor(pos_item, dtype=torch.long),
-            "negative_pool": torch.tensor(self._negative_pool(pos_item, seen_items), dtype=torch.long),
+            "negative_pool": torch.tensor(self._negative_pool(pos_item, seen_items), dtype=torch.long)
         }
 
-
+# for reproducibility
 def seed_everything(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -298,7 +303,7 @@ def train_one_epoch(model, loader, optimizer, scaler, device, epoch, use_amp):
     return {
         "loss": total_loss / total_steps,
         "sampled_loss": total_sampled_loss / total_steps,
-        "in_batch_loss": total_in_batch_loss / total_steps,
+        "in_batch_loss": total_in_batch_loss / total_steps
     }
 
 
@@ -319,12 +324,12 @@ def main():
     dataset = HardNegativeTwoTowerDataset(
         INTERACTIONS,
         USER_HISTORY,
-        ALL_ITEMS,
+        ALL_ITEMS_INDEXES,
         sample_size=TRAIN_SAMPLE_SIZE,
         seed=SEED,
     )
     print(f"Dataset size after filters: {len(dataset):,} interactions")
-    print(f"Train candidate items: {len(dataset.all_items):,}")
+    print(f"Train candidate items: {len(dataset.all_items_indices):,}")
     print(f"Popular negative pool: {len(dataset.popular_items):,}")
 
     loader = DataLoader(
@@ -334,7 +339,7 @@ def main():
         num_workers=NUM_WORKERS,
         pin_memory=use_amp,
         persistent_workers=False,
-        drop_last=True,
+        drop_last=True 
     )
 
     model = TwoTowerModel().to(DEVICE)

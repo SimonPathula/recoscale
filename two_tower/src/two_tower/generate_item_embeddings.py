@@ -8,8 +8,8 @@ from two_tower_model import TwoTowerModel
 CHUNK_SIZE = 256
 TITLE_DIM = 384
 
-SAVE_PATH = "D:/projects/recoscale/two_tower/models/item_embeddings_fullbatch.npy"
-CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower"
+SAVE_PATH = "D:/projects/recoscale/two_tower/models/item_embeddings_hardneg_fullbatch.npy"
+CHECKPOINT_DIR = "D:/projects/recoscale/two_tower/models/two_tower_hardneg"
 ITEM_FEATURES_PATH = "D:/projects/recoscale/two_tower/data/item_features_clean.npy"
 TITLE_EMBEDDINGS_PATH = "D:/projects/recoscale/two_tower/data/title_embeddings.dat"
 
@@ -23,7 +23,7 @@ checkpoints = sorted(
         key=lambda x: int(x.split("_")[1].split(".")[0])
     )
 
-latest = os.path.join(CHECKPOINT_DIR, checkpoints[-1])
+latest = os.path.join(CHECKPOINT_DIR, checkpoints[-2])
 ckpt = torch.load(latest, map_location = DEVICE)  
 
 title_embeddings = np.memmap(
